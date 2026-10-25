@@ -1,1 +1,57 @@
-Lyog5pma5a6J5pWF5LqLIFNlcnZpY2UgV29ya2Vy77ya56a757q/57yT5a2Y77yM6K6pIEFwcCDmsqHnvZHkuZ/og73miZPlvIAgKi8KY29uc3QgQ0FDSEUgPSAnYmVkdGltZS1zdG9yaWVzLXYxJzsKY29uc3QgQ09SRSA9IFsKICAnLi8nLAogICcuL2luZGV4Lmh0bWwnLAogICcuL2Fzc2V0cy9uaWdodC1za3kuanBnJywKICAnLi9hc3NldHMvaWNvbi0xOTIucG5nJywKICAnLi9hc3NldHMvaWNvbi01MTIucG5nJywKICAnLi9tYW5pZmVzdC53ZWJtYW5pZmVzdCcKXTsKCnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignaW5zdGFsbCcsIGUgPT4gewogIGUud2FpdFVudGlsKAogICAgY2FjaGVzLm9wZW4oQ0FDSEUpCiAgICAgIC50aGVuKGMgPT4gYy5hZGRBbGwoQ09SRSkpCiAgICAgIC50aGVuKCgpID0+IHNlbGYuc2tpcFdhaXRpbmcoKSkKICApOwp9KTsKCnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignYWN0aXZhdGUnLCBlID0+IHsKICBlLndhaXRVbnRpbCgKICAgIGNhY2hlcy5rZXlzKCkKICAgICAgLnRoZW4oa2V5cyA9PiBQcm9taXNlLmFsbChrZXlzLmZpbHRlcihrID0+IGsgIT09IENBQ0hFKS5tYXAoayA9PiBjYWNoZXMuZGVsZXRlKGspKSkpCiAgICAgIC50aGVuKCgpID0+IHNlbGYuY2xpZW50cy5jbGFpbSgpKQogICk7Cn0pOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGUgPT4gewogIGNvbnN0IHJlcSA9IGUucmVxdWVzdDsKICBpZiAocmVxLm1ldGhvZCAhPT0gJ0dFVCcpIHJldHVybjsKCiAgLy8g5Zyo57q/5a2X5L2T77ya572R57uc5LyY5YWI77yM5oiQ5Yqf5ZCO5YaZ5YWl57yT5a2YCiAgaWYgKC9mb250cy8udGVzdChyZXEudXJsKSkgewogICAgZS5yZXNwb25kV2l0aCgKICAgICAgZmV0Y2gocmVxKS50aGVuKHIgPT4gewogICAgICAgIGNvbnN0IGNvcHkgPSByLmNsb25lKCk7CiAgICAgICAgY2FjaGVzLm9wZW4oQ0FDSEUpLnRoZW4oYyA9PiBjLnB1dChyZXEsIGNvcHkpKTsKICAgICAgICByZXR1cm4gcjsKICAgICAgfSkuY2F0Y2goKCkgPT4gY2FjaGVzLm1hdGNoKHJlcSkpCiAgICApOwogICAgcmV0dXJuOwogIH0KCiAgLy8g5YW25L2Z6LWE5rqQ77ya57yT5a2Y5LyY5YWI77yM5ZCO5Y+w5pu05pawCiAgZS5yZXNwb25kV2l0aCgKICAgIGNhY2hlcy5tYXRjaChyZXEpLnRoZW4oaGl0ID0+IHsKICAgICAgY29uc3QgZmV0Y2hpbmcgPSBmZXRjaChyZXEpLnRoZW4ociA9PiB7CiAgICAgICAgaWYgKHIub2sgJiYgbmV3IFVSTChyZXEudXJsKS5vcmlnaW4gPT09IGxvY2F0aW9uLm9yaWdpbikgewogICAgICAgICAgY29uc3QgY29weSA9IHIuY2xvbmUoKTsKICAgICAgICAgIGNhY2hlcy5vcGVuKENBQ0hFKS50aGVuKGMgPT4gYy5wdXQocmVxLCBjb3B5KSk7CiAgICAgICAgfQogICAgICAgIHJldHVybiByOwogICAgICB9KS5jYXRjaCgoKSA9PiB7fSk7CiAgICAgIHJldHVybiBoaXQgfHwgZmV0Y2hpbmcudGhlbihyID0+IHIgfHwgY2FjaGVzLm1hdGNoKCcuL2luZGV4Lmh0bWwnKSk7CiAgICB9KQogICk7Cn0pOwo=
+/* 睡前故事 Service Worker：离线缓存，让 App 安装后可离线使用 */
+const CACHE = 'bedtime-stories-v3';
+const CORE = [
+  './', './index.html', './styles.css',
+  './js/1-util.js', './js/2-state.js', './js/3-ambient.js',
+  './js/4-recorder.js', './js/5-canvas.js', './js/6-library.js',
+  './js/7-player.js', './js/8-timer.js', './js/9-modals.js', './js/10-events.js',
+  './assets/icon-192.png', './assets/icon-512.png',
+  './manifest.webmanifest'
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(CORE.map(u => c.add(u))))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+
+  // 字体：网络优先，失败回退缓存
+  if (/fonts/.test(req.url)) {
+    e.respondWith(
+      fetch(req).then(r => {
+        const copy = r.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+        return r;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // 其余同源资源：缓存优先，后台更新
+  e.respondWith(
+    caches.match(req).then(hit => {
+      const fetching = fetch(req).then(r => {
+        if (r.ok && new URL(req.url).origin === location.origin) {
+          const copy = r.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+        }
+        return r;
+      }).catch(() => null);
+      return hit || fetching.then(r => r || caches.match('./index.html'));
+    })
+  );
+});
