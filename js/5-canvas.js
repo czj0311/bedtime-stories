@@ -101,6 +101,8 @@ function drawStars(t) {
 }
 
 function frameLoop(t) {
+  if (waveW === 0 || waveH === 0) fitWave();
+  if (starW === 0 || starH === 0) fitStar();
   waveT += 0.02;
   if (rec.mode === 'recording' && rec.analyser) drawLiveWave(); else drawIdleWave();
   drawStars(t);
