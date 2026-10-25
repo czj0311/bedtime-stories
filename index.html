@@ -1,1 +1,184 @@
-PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9InpoLUNOIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xLCB2aWV3cG9ydC1maXQ9Y292ZXIiPgo8dGl0bGU+5pma5a6J5pWF5LqLIMK3IOe7meexs+exs+WuuDwvdGl0bGU+CjwhLS0gUFdB77yabWFuaWZlc3Qg55Sx6ISa5pys5ZyoIEhUVFBTIOS4i+WKqOaAgeazqOWFpe+8iOacrOWcsCBmaWxlOi8vIOS8muiiqyBDT1JTIOaLpuaIqu+8iSAtLT4KPG1ldGEgbmFtZT0idGhlbWUtY29sb3IiIGNvbnRlbnQ9IiMwYjEwMjYiPgo8bWV0YSBuYW1lPSJtb2JpbGUtd2ViLWFwcC1jYXBhYmxlIiBjb250ZW50PSJ5ZXMiPgo8bWV0YSBuYW1lPSJhcHBsZS1tb2JpbGUtd2ViLWFwcC1jYXBhYmxlIiBjb250ZW50PSJ5ZXMiPgo8bWV0YSBuYW1lPSJhcHBsZS1tb2JpbGUtd2ViLWFwcC1zdGF0dXMtYmFyLXN0eWxlIiBjb250ZW50PSJibGFjay10cmFuc2x1Y2VudCI+CjxtZXRhIG5hbWU9ImFwcGxlLW1vYmlsZS13ZWItYXBwLXRpdGxlIiBjb250ZW50PSLmmZrlronmlYXkuosiPgo8bGluayByZWw9Imljb24iIGhyZWY9ImRhdGE6aW1hZ2Uvc3ZnK3htbCwlM0NzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMzIgMzInJTNFJTNDcGF0aCBkPSdNMjcgMjAuNUExMiAxMiAwIDEgMSAxMS41IDUgOS41IDkuNSAwIDAgMCAyNyAyMC41eicgZmlsbD0nJTIzZWNkNmE2Jy8lM0UlM0Mvc3ZnJTNFIj4KPGxpbmsgcmVsPSJwcmVjb25uZWN0IiBocmVmPSJodHRwczovL21pYW9kYS5mZWlzaHUuY24iPgo8bGluayByZWw9InN0eWxlc2hlZXQiIGhyZWY9Imh0dHBzOi8vbWlhb2RhLmZlaXNodS5jbi9mb250cy9jc3MyP2ZhbWlseT1Ob3RvK1NlcmlmK1NDOndnaHRANTAwOzYwMDs3MDAmZmFtaWx5PU5vdG8rU2FucytTQzp3Z2h0QDQwMDs1MDA6NzAwJmRpc3BsYXk9c3dhcCI+CjxzdHlsZT4K
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>晚安故事 · 给米米宸</title>
+<meta name="theme-color" content="#0b1026">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="晚安故事">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M27 20.5A12 12 0 1 1 11.5 5 9.5 9.5 0 0 0 27 20.5z' fill='%23ecd6a6'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://miaoda.feishu.cn">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="night-sky" aria-hidden="true"></div>
+<div class="night-glow" aria-hidden="true"></div>
+<div class="night-hills" aria-hidden="true"></div>
+<canvas id="starCanvas" aria-hidden="true"></canvas>
+
+<main class="app">
+  <header class="masthead">
+    <svg class="moon" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="moonG" cx="36%" cy="30%" r="85%">
+          <stop offset="0%" stop-color="#f8ecd0"/>
+          <stop offset="55%" stop-color="#ecd39b"/>
+          <stop offset="100%" stop-color="#d6b76f"/>
+        </radialGradient>
+      </defs>
+      <path d="M68 14a36 36 0 1 0 0 72 29 29 0 0 1 0-72z" fill="url(#moonG)"/>
+    </svg>
+    <h1>晚安故事</h1>
+    <p class="tagline">为你读的每一夜，都留在这里</p>
+    <p class="stats" id="stats">还没有故事 · 今晚录第一个吧</p>
+  </header>
+
+  <section class="card recorder">
+    <div class="rec-top">
+      <span class="rec-status"><span id="recDot" class="dot"></span><span id="recStatus">准备就绪</span></span>
+      <span class="rec-time" id="recTime">00:00</span>
+    </div>
+    <div class="wave-wrap"><canvas id="waveCanvas"></canvas></div>
+    <div class="rec-controls">
+      <button class="icon-btn" id="pauseBtn" aria-label="暂停" disabled>
+        <svg viewBox="0 0 24 24" class="ic"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+      </button>
+      <button class="rec-btn" id="recBtn" aria-label="开始录音">
+        <svg viewBox="0 0 24 24" class="ic"><rect x="9" y="3" width="6" height="13" rx="3" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" class="ic ic-stop" hidden><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+      </button>
+      <button class="icon-btn" id="discardBtn" aria-label="删除本段" disabled>
+        <svg viewBox="0 0 24 24" class="ic"><path d="M5 7h14M10 7V5h4v2M8 7l1 13h6l1-13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </button>
+    </div>
+    <p class="rec-hint" id="recHint">轻点金色按钮开始录音，再点一次结束</p>
+  </section>
+
+  <section class="card tools">
+    <div class="tools-row">
+      <span class="tools-label">助眠音</span>
+      <div class="amb-group">
+        <button class="chip amb-btn" data-kind="rain">雨声</button>
+        <button class="chip amb-btn" data-kind="wave">海浪</button>
+        <button class="chip amb-btn" data-kind="wind">夜风</button>
+      </div>
+    </div>
+    <div class="tools-row">
+      <input type="range" id="ambVolume" class="vol" min="0" max="100" value="50" aria-label="白噪音音量">
+      <button class="timer-btn" id="timerBtn">
+        <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.7" fill="none"/></svg>
+        <span id="timerLabel">定时</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="library">
+    <div class="lib-head">
+      <h2>故事库</h2>
+      <div class="lib-actions">
+        <div class="seg">
+          <button class="seg-btn is-on" id="filterAll" data-filter="all">全部</button>
+          <button class="seg-btn" id="filterFav" data-filter="fav">收藏</button>
+        </div>
+        <button class="icon-btn" id="shuffleBtn" aria-label="随机播放">
+          <svg viewBox="0 0 24 24" class="ic"><path d="M4 6h4l3 5 3-5h2M4 18h4l3-5M17 6h3M17 18h3M18 4l3 2-3 2M18 16l3 2-3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" class="ic search-ic"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7" fill="none"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="搜索故事名字或留言…" autocomplete="off">
+    </div>
+    <div class="story-list" id="storyList"></div>
+    <div class="empty" id="emptyState">
+      <svg class="empty-moon" viewBox="0 0 100 100" aria-hidden="true"><path d="M68 14a36 36 0 1 0 0 72 29 29 0 0 1 0-72z" fill="#e6cf9b"/></svg>
+      <p class="empty-title">今晚还没有故事</p>
+      <p class="empty-sub">轻点上方按钮，把今晚的故事录下来</p>
+      <p class="empty-sub faint">米米宸在每个睡不着的夜里，都会听见你的声音</p>
+    </div>
+  </section>
+
+  <footer class="sign">
+    <p>录音只保存在这台设备的浏览器中，不会上传</p>
+    <p>记得偶尔点「下载」，把故事备份珍藏</p>
+    <p>每一个故事，都是说给米米宸的晚安</p>
+  </footer>
+</main>
+
+<div class="player-bar" id="playerBar" hidden>
+  <button class="pp" id="playerPlay" aria-label="播放">
+    <svg viewBox="0 0 24 24" class="ic"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5z" fill="currentColor"/></svg>
+  </button>
+  <div class="player-mid">
+    <div class="player-title" id="playerTitle"></div>
+    <div class="progress" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="player-times"><span id="playerCur">00:00</span><span id="playerDur">00:00</span></div>
+  </div>
+  <button class="chip speed-btn" id="speedBtn">1.0×</button>
+  <button class="icon-btn heart" id="favBtn" aria-label="收藏">
+    <svg viewBox="0 0 24 24" class="ic"><path d="M12 20s-7-4.3-7-9.5C5 7.5 7 5.5 9.5 5.5c1.4 0 2.6.8 2.5 1.6C12.9 6.3 13.1 5.5 14.5 5.5 17 5.5 19 7.5 19 10.5 19 15.7 12 20 12 20z" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<div class="mask" id="timerMask" hidden>
+  <div class="modal">
+    <h3>定时关闭</h3>
+    <p class="modal-sub" id="timerCurrent">到时间会自动停止播放并进入休眠</p>
+    <div class="opts" id="timerOpts">
+      <button class="opt" data-mins="15">15 分钟</button>
+      <button class="opt" data-mins="30">30 分钟</button>
+      <button class="opt" data-mins="60">60 分钟</button>
+    </div>
+    <div class="custom-row">
+      <span>自定义</span>
+      <input type="number" id="customTimer" min="1" max="600" inputmode="numeric" placeholder="分钟">
+      <span>分钟</span>
+      <button class="chip" id="customSet">设定</button>
+    </div>
+    <div class="modal-actions">
+      <button class="ghost-btn" id="cancelTimer">取消定时</button>
+      <button class="primary-btn" id="closeTimer">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="saveMask" hidden>
+  <div class="modal">
+    <h3>存下这个故事</h3>
+    <audio id="previewAudio" controls></audio>
+    <input type="text" id="storyTitle" placeholder="给它起个名字（如：第三夜·小熊看月亮）">
+    <textarea id="storyNote" rows="2" placeholder="写一句留言（可选）"></textarea>
+    <div class="modal-actions">
+      <button class="ghost-btn" id="rerecordBtn">重录</button>
+      <button class="primary-btn" id="saveStoryBtn">保存故事</button>
+    </div>
+  </div>
+</div>
+
+<div class="sleep-veil" id="sleepVeil" hidden>
+  <svg class="sleep-moon" viewBox="0 0 100 100" aria-hidden="true"><path d="M68 14a36 36 0 1 0 0 72 29 29 0 0 1 0-72z" fill="#f0dca9"/></svg>
+  <p class="sleep-word">晚安</p>
+  <p class="sleep-sub">轻点屏幕唤醒</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/1-util.js"></script>
+<script src="js/2-state.js"></script>
+<script src="js/3-ambient.js"></script>
+<script src="js/4-recorder.js"></script>
+<script src="js/5-canvas.js"></script>
+<script src="js/6-library.js"></script>
+<script src="js/7-player.js"></script>
+<script src="js/8-timer.js"></script>
+<script src="js/9-modals.js"></script>
+<script src="js/10-events.js"></script>
+</body>
+</html>
