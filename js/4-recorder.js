@@ -114,6 +114,9 @@ function updateRecUI() {
   wrap.classList.toggle('recording', mode === 'recording');
   wrap.classList.toggle('paused', mode === 'paused');
   recBtn.classList.toggle('is-recording', mode !== 'idle');
+  const mic = recBtn.querySelector('.ic-mic'), stop = recBtn.querySelector('.ic-stop');
+  if (mic) mic.hidden = (mode !== 'idle');
+  if (stop) stop.hidden = (mode === 'idle');
   discardBtn.disabled = (mode === 'idle');
   if (mode === 'recording') {
     status.textContent = '正在录音';
