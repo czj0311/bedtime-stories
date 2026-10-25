@@ -31,7 +31,7 @@ const fmtDate = ts => {
   if (isYest) return `昨天 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return sameYear ? `${d.getMonth() + 1}月${d.getDate()}日` : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 };
-const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','&#039;':'&#039;'}[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) || s;
 
 let toastTimer;
 function toast(msg) {
