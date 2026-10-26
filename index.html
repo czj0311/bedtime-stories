@@ -25,13 +25,21 @@
   <header class="masthead">
     <svg class="moon" viewBox="0 0 100 100" aria-hidden="true">
       <defs>
-        <radialGradient id="moonG" cx="36%" cy="30%" r="85%">
-          <stop offset="0%" stop-color="#f8ecd0"/>
-          <stop offset="55%" stop-color="#ecd39b"/>
-          <stop offset="100%" stop-color="#d6b76f"/>
+        <mask id="moonCut">
+          <rect width="100" height="100" fill="#fff"/>
+          <circle cx="63" cy="42" r="33" fill="#000"/>
+        </mask>
+        <radialGradient id="moonG" cx="32%" cy="28%" r="82%">
+          <stop offset="0%" stop-color="#faf1d7"/>
+          <stop offset="58%" stop-color="#eed7a0"/>
+          <stop offset="100%" stop-color="#d4b36c"/>
         </radialGradient>
       </defs>
-      <path d="M68 14a36 36 0 1 0 0 72 29 29 0 0 1 0-72z" fill="url(#moonG)"/>
+      <g mask="url(#moonCut)">
+        <circle cx="50" cy="52" r="36" fill="url(#moonG)"/>
+      </g>
+      <circle cx="76" cy="30" r="2.4" fill="#f4e9cd" class="moon-spark"/>
+      <path class="moon-spark" d="M83 46l1.1 3 3 1.1-3 1.1-1.1 3-1.1-3-3-1.1 3-1.1z" fill="#f4e9cd" opacity="0.9"/>
     </svg>
     <h1>晚安故事</h1>
     <p class="tagline">为你读的每一夜，都留在这里</p>
@@ -49,7 +57,7 @@
         <svg viewBox="0 0 24 24" class="ic"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
       </button>
       <button class="rec-btn" id="recBtn" aria-label="开始录音">
-        <svg viewBox="0 0 24 24" class="ic"><rect x="9" y="3" width="6" height="13" rx="3" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" class="ic ic-mic" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3" fill="currentColor" stroke="none"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3.5M9 21h6"/></svg>
         <svg viewBox="0 0 24 24" class="ic ic-stop" hidden><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
       </button>
       <button class="icon-btn" id="discardBtn" aria-label="删除本段" disabled>
@@ -96,7 +104,7 @@
     </div>
     <div class="story-list" id="storyList"></div>
     <div class="empty" id="emptyState">
-      <svg class="empty-moon" viewBox="0 0 100 100" aria-hidden="true"><path d="M68 14a36 36 0 1 0 0 72 29 29 0 0 1 0-72z" fill="#e6cf9b"/></svg>
+      <svg class="empty-moon" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="moonCut3"><rect width="100" height="100" fill="#fff"/><circle cx="63" cy="42" r="33" fill="#000"/></mask></defs><g mask="url(#moonCut3)"><circle cx="50" cy="52" r="36" fill="#e6cf9b"/></g></svg>
       <p class="empty-title">今晚还没有故事</p>
       <p class="empty-sub">轻点上方按钮，把今晚的故事录下来</p>
       <p class="empty-sub faint">米米宸在每个睡不着的夜里，都会听见你的声音</p>
@@ -163,7 +171,12 @@
 </div>
 
 <div class="sleep-veil" id="sleepVeil" hidden>
-  <svg class="sleep-moon" viewBox="0 0 100 100" aria-hidden="true"><path d="M68 14a36 36 0 1 0 0 72 29 29 0 0 1 0-72z" fill="#f0dca9"/></svg>
+  <svg class="sleep-moon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs><mask id="moonCut2"><rect width="100" height="100" fill="#fff"/><circle cx="63" cy="42" r="33" fill="#000"/></mask></defs>
+    <g mask="url(#moonCut2)"><circle cx="50" cy="52" r="36" fill="#f0dca9"/></g>
+    <circle cx="76" cy="29" r="2.4" fill="#f4e9cd"/>
+    <path d="M83 45l1.1 3 3 1.1-3 1.1-1.1 3-1.1-3-3-1.1 3-1.1z" fill="#f4e9cd" opacity=".9"/>
+  </svg>
   <p class="sleep-word">晚安</p>
   <p class="sleep-sub">轻点屏幕唤醒</p>
 </div>
