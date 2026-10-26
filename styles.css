@@ -112,7 +112,7 @@ font-size:13px; color:var(--dim); border:1px solid var(--line-2); background:rgb
 .seg-btn.is-on{color:#3a2f14; background:var(--gold); font-weight:500;}
 .search-box{position:relative; display:flex; align-items:center; margin-bottom:16px;}
 .search-ic{position:absolute; left:15px; width:17px; height:17px; color:var(--faint);}
-#searchInput{width:100%; padding:12px 16px 12px 42px; border-radius:14px; font-size:15px;
+#searchInput{width:100%; padding:12px 16px 12px 42px; border-radius:14px; font-size:16px;
 background:rgba(6,10,28,.4); border:1px solid var(--line); outline:none; transition:border-color .2s;}
 #searchInput:focus{border-color:rgba(238,216,169,.4);}
 #searchInput::placeholder{color:var(--faint);}
@@ -185,7 +185,7 @@ background:rgba(6,10,28,.5); border:1px solid var(--line); outline:none;}
 .ghost-btn{color:var(--dim); border:1px solid var(--line-2); background:rgba(255,255,255,.03);}
 .primary-btn{color:#3a2f14; font-weight:600; background:linear-gradient(180deg,#f0dcae,#ddc083);}
 #previewAudio{width:100%; margin:6px 0 16px;}
-#storyTitle,#storyNote{width:100%; padding:12px 14px; border-radius:12px; font-size:15px; margin-bottom:11px; resize:none;
+#storyTitle,#storyNote{width:100%; padding:12px 14px; border-radius:12px; font-size:16px; margin-bottom:11px; resize:none;
 background:rgba(6,10,28,.5); border:1px solid var(--line); outline:none;}
 #storyTitle:focus,#storyNote:focus{border-color:rgba(238,216,169,.4);}
 #storyTitle::placeholder,#storyNote::placeholder{color:var(--faint);}
