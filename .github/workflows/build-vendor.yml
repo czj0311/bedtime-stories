@@ -1,0 +1,39 @@
+name: Build vendor bundle
+
+# 云端构建 vendor/runtime.js（supabase-js + lamejs 打包产物，约 400KB）。
+# 便于只推送源码文本；依赖或打包脚本变更时自动重新构建并提交。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vendor-src/**'
+      - 'scripts/build-vendor.mjs'
+      - '.github/workflows/build-vendor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - name: Commit rebuilt vendor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor/runtime.js
+          if git diff --cached --quiet; then
+            echo "vendor/runtime.js 未变化"
+          else
+            git commit -m "chore: 云端重建 vendor/runtime.js"
+            git push
+          fi
