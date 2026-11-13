@@ -87,6 +87,9 @@ const BedtimeConfig = {
 
 ## 常见问题
 
+**Q：执行脚本时报 `42501: must be owner of table objects`？**
+旧版脚本含有一句对 Supabase 系统表 `storage.objects` 的 `alter table`，平台自 2025 年 4 月起禁止此操作。新版脚本已删掉该行（那张表的行级安全本就默认开启）。重新完整粘贴执行新版 `supabase/schema.sql` 即可——脚本可重复执行，不会产生重复数据。
+
 **Q：打开双人空间显示「当前为仅本机模式」？**
 config.js 没填或没部署成功。回第 5 步检查。
 
