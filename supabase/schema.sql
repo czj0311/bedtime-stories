@@ -316,7 +316,9 @@ insert into storage.buckets (id, name, public)
 values ('story-audio', 'story-audio', false)
 on conflict (id) do update set public = false;
 
-alter table storage.objects enable row level security;
+-- 注意：storage.objects 的 RLS 已由 Supabase 默认开启，且平台自 2025-04 起禁止
+-- 对该系统表执行 ALTER TABLE（会报 42501 must be owner of table objects）。
+-- 此处只创建策略，不改表本身。
 
 -- 对象路径必须为 <couple UUID>/<filename>；CASE 先验证格式，避免非法 UUID 转换错误。
 -- 所有操作均校验当前用户对路径首段空间的成员资格，UPDATE 同时校验新旧路径。
