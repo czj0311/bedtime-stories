@@ -44,6 +44,12 @@
     <h1>晚安故事</h1>
     <p class="tagline">为你读的每一夜，都留在这里</p>
     <p class="stats" id="stats">还没有故事 · 今晚录第一个吧</p>
+    <div class="mast-sync">
+      <button id="cloudChip" class="cloud-chip" hidden></button>
+      <button id="accountBtn" class="acct-btn" aria-label="双人空间设置">
+        <svg viewBox="0 0 24 24" class="ic"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" stroke="currentColor" stroke-width="1.7" fill="none"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.38-2.94l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 12 4.6V4a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0 1.2 2.9l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 15z" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
   </header>
 
   <section class="card recorder">
@@ -91,6 +97,8 @@
       <div class="lib-actions">
         <div class="seg">
           <button class="seg-btn is-on" id="filterAll" data-filter="all">全部</button>
+          <button class="seg-btn" data-filter="mine">我的</button>
+          <button class="seg-btn" data-filter="theirs">她的</button>
           <button class="seg-btn" id="filterFav" data-filter="fav">收藏</button>
         </div>
         <button class="icon-btn" id="shuffleBtn" aria-label="随机播放">
@@ -112,8 +120,8 @@
   </section>
 
   <footer class="sign">
-    <p>录音只保存在这台设备的浏览器中，不会上传</p>
-    <p>记得偶尔点「下载」，把故事备份珍藏</p>
+    <p>故事在本机与云端均为加密保存，只有你们俩能听见</p>
+    <p>记得偶尔点「下载」，把故事再备份珍藏</p>
     <p>每一个故事，都是说给米米宸的晚安</p>
   </footer>
 </main>
@@ -183,6 +191,21 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="mask" id="accountMask" hidden>
+  <div class="modal modal-account">
+    <h3>双人空间</h3>
+    <p class="modal-sub" id="acctStatus"></p>
+    <div id="acctBody"></div>
+    <div class="modal-actions">
+      <button class="ghost-btn" id="acctLockBtn" hidden>锁定加密</button>
+      <button class="ghost-btn" id="acctImportBtn" hidden>导入本机旧故事</button>
+      <button class="ghost-btn" id="acctSignoutBtn" hidden>退出账号</button>
+      <button class="primary-btn" id="acctCloseBtn">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/runtime.js"></script>
 <script src="js/1-util.js"></script>
 <script src="js/2-state.js"></script>
 <script src="js/3-ambient.js"></script>
@@ -193,5 +216,9 @@
 <script src="js/8-timer.js"></script>
 <script src="js/9-modals.js"></script>
 <script src="js/10-events.js"></script>
+<script src="js/11-crypto.js"></script>
+<script src="js/config.js"></script>
+<script src="js/12-cloud.js"></script>
+<script src="js/13-account.js"></script>
 </body>
 </html>

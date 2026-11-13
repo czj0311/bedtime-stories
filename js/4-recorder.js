@@ -2,17 +2,87 @@
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" class="ic"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>';
 const ICON_PLAY = '<svg viewBox="0 0 24 24" class="ic"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5z" fill="currentColor"/></svg>';
 
-function pickMime() {
-  const cands = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg'];
-  if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
-    for (const c of cands) { try { if (MediaRecorder.isTypeSupported(c)) return c; } catch (e) {} }
-  }
-  return '';
-}
+const REC_MP3_SAMPLE_RATE = 44100;
+
 function extFor(mime) {
+  if (/mpeg|mp3/i.test(mime)) return 'mp3';
   if (/mp4|m4a/i.test(mime)) return 'm4a';
   if (/ogg/i.test(mime)) return 'ogg';
   return 'webm';
+}
+
+function floatTo16BitPcm(input) {
+  const output = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    const sample = Math.max(-1, Math.min(1, input[i]));
+    output[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  return output;
+}
+
+// 跨回调保留插值位置，避免每个 ScriptProcessor 数据块边缘产生断点。
+function resampleForMp3(input, session) {
+  if (session.inputRate === session.targetRate || !input.length) return input;
+  const ratio = session.inputRate / session.targetRate;
+  const output = new Float32Array(Math.ceil(input.length / ratio) + 2);
+  let position = session.resamplePos;
+  let count = 0;
+  while (position < input.length - 1) {
+    const index = Math.floor(position);
+    const fraction = position - index;
+    const previous = index < 0 ? session.resamplePrev : input[index];
+    const next = input[index + 1];
+    output[count++] = previous + (next - previous) * fraction;
+    position += ratio;
+  }
+  session.resamplePrev = input[input.length - 1];
+  session.resamplePos = position - input.length;
+  return output.subarray(0, count);
+}
+
+function appendMp3Data(session, data) {
+  if (!data || !data.length) return;
+  const chunk = new Uint8Array(data.length);
+  chunk.set(data);
+  session.chunks.push(chunk);
+}
+
+function encodePcmBlock(session, input) {
+  const resampled = resampleForMp3(input, session);
+  if (!resampled.length) return;
+  appendMp3Data(session, session.encoder.encodeBuffer(floatTo16BitPcm(resampled)));
+}
+
+function cleanupRecSession(session) {
+  if (!session || session.cleaned) return;
+  session.cleaned = true;
+  session.ending = true;
+  if (session.processor) session.processor.onaudioprocess = null;
+  [session.source, session.analyser, session.processor, session.mute].forEach(node => {
+    if (node) { try { node.disconnect(); } catch (e) {} }
+  });
+  if (session.stream) {
+    session.stream.getTracks().forEach(track => { try { track.stop(); } catch (e) {} });
+  }
+  if (session.audioCtx && typeof session.audioCtx.close === 'function') {
+    try {
+      const closing = session.audioCtx.close();
+      if (closing && closing.catch) closing.catch(() => {});
+    } catch (e) {}
+  }
+  if (rec.session === session) {
+    rec.session = null;
+    rec.stream = null;
+    rec.audioCtx = null;
+    rec.analyser = null;
+    rec.encoder = null;
+    rec.source = null;
+    rec.processor = null;
+    rec.mute = null;
+    rec.chunks = [];
+    rec.mr = null;
+    rec.discard = false;
+  }
 }
 
 function recTickFn() {
@@ -23,86 +93,185 @@ function recTickFn() {
 
 async function startRecording() {
   if (rec.mode === 'recording' || rec.mode === 'paused') { stopRecording(false); return; }
+  if (rec.starting) return;
+  if (typeof Mp3Encoder !== 'function') {
+    toast('MP3 编码器未加载，无法录音');
+    return;
+  }
+
+  rec.starting = true;
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     });
   } catch (e) {
+    rec.starting = false;
     toast('无法访问麦克风，请在设置里允许录音');
     return;
   }
+
+  const session = {
+    stream,
+    audioCtx: null,
+    source: null,
+    analyser: null,
+    processor: null,
+    mute: null,
+    encoder: null,
+    chunks: [],
+    inputRate: REC_MP3_SAMPLE_RATE,
+    targetRate: REC_MP3_SAMPLE_RATE,
+    resamplePrev: 0,
+    resamplePos: 0,
+    ending: false,
+    cleaned: false,
+    failureMessage: ''
+  };
+  rec.session = session;
   rec.stream = stream;
-  rec.mime = pickMime();
-  let mr;
-  try {
-    mr = new MediaRecorder(stream, rec.mime ? { mimeType: rec.mime } : undefined);
-  } catch (e) {
-    mr = new MediaRecorder(stream);
-    rec.mime = mr.mimeType || 'audio/webm';
-  }
-  rec.mr = mr; rec.chunks = [];
-  mr.ondataavailable = e => { if (e.data && e.data.size) rec.chunks.push(e.data); };
-  mr.onstop = () => onRecordingStopped();
+  rec.chunks = session.chunks;
 
   try {
-    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) throw new Error('AudioContext unavailable');
+    let actx;
+    try { actx = new AudioCtx({ sampleRate: REC_MP3_SAMPLE_RATE }); }
+    catch (e) { actx = new AudioCtx(); }
+    session.audioCtx = actx;
+    session.inputRate = actx.sampleRate;
+    session.encoder = new Mp3Encoder(1, REC_MP3_SAMPLE_RATE, 64);
+
     const src = actx.createMediaStreamSource(stream);
     const analyser = actx.createAnalyser();
+    const processor = actx.createScriptProcessor(4096, 1, 1);
+    const mute = actx.createGain();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.7;
-    src.connect(analyser);
-    rec.audioCtx = actx; rec.analyser = analyser;
-  } catch (e) { rec.analyser = null; }
+    mute.gain.value = 0;
+    session.source = src;
+    session.analyser = analyser;
+    session.processor = processor;
+    session.mute = mute;
 
-  try { mr.start(); } catch (e) { toast('录音启动失败'); return; }
-  rec.mode = 'recording';
-  rec.startedAt = performance.now(); rec.accumMs = 0; rec.seconds = 0;
-  clearInterval(rec.tick);
-  rec.tick = setInterval(recTickFn, 250);
-  updateRecUI();
+    processor.onaudioprocess = event => {
+      if (rec.session !== session || rec.mode !== 'recording' || session.ending) return;
+      try {
+        encodePcmBlock(session, event.inputBuffer.getChannelData(0));
+      } catch (e) {
+        session.failureMessage = 'MP3 编码失败，录音已丢弃';
+        stopRecording(true);
+      }
+    };
+    src.connect(analyser);
+    src.connect(processor);
+    processor.connect(mute);
+    mute.connect(actx.destination);
+
+    rec.audioCtx = actx;
+    rec.analyser = analyser;
+    rec.encoder = session.encoder;
+    rec.source = src;
+    rec.processor = processor;
+    rec.mute = mute;
+    if (typeof actx.resume === 'function') await actx.resume();
+    if (rec.session !== session || session.cleaned) return;
+
+    rec.mime = 'audio/mpeg';
+    rec.mode = 'recording';
+    rec.startedAt = performance.now();
+    rec.accumMs = 0;
+    rec.seconds = 0;
+    rec.discard = false;
+    clearInterval(rec.tick);
+    rec.tick = setInterval(recTickFn, 250);
+    updateRecUI();
+  } catch (e) {
+    cleanupRecSession(session);
+    rec.mode = 'idle';
+    updateRecUI();
+    toast('录音启动失败');
+  } finally {
+    rec.starting = false;
+  }
 }
 
 function pauseRecording() {
-  if (rec.mode !== 'recording' || !rec.mr) return;
-  rec.mr.pause();
+  if (rec.mode !== 'recording' || !rec.session) return;
   rec.accumMs += performance.now() - rec.startedAt;
+  rec.seconds = Math.floor(rec.accumMs / 1000);
   rec.mode = 'paused';
   clearInterval(rec.tick);
+  rec.tick = null;
   updateRecUI();
 }
 function resumeRecording() {
-  if (rec.mode !== 'paused' || !rec.mr) return;
-  rec.mr.resume();
+  if (rec.mode !== 'paused' || !rec.session) return;
+  const session = rec.session;
+  const actx = session.audioCtx;
+  let resuming = null;
+  try {
+    if (actx && actx.state !== 'running' && typeof actx.resume === 'function') {
+      resuming = actx.resume();
+    }
+  } catch (e) {
+    session.failureMessage = '无法继续录音，录音已丢弃';
+    stopRecording(true);
+    return;
+  }
   rec.startedAt = performance.now();
   rec.mode = 'recording';
   clearInterval(rec.tick);
   rec.tick = setInterval(recTickFn, 250);
   updateRecUI();
+  if (resuming && typeof resuming.catch === 'function') {
+    resuming.catch(() => {
+      if (rec.session === session && rec.mode === 'recording') {
+        session.failureMessage = '无法继续录音，录音已丢弃';
+        stopRecording(true);
+      }
+    });
+  }
 }
 
 function stopRecording(discard) {
-  if (!rec.mr || rec.mode === 'idle') return;
+  const session = rec.session;
+  if (!session || rec.mode === 'idle') return;
   clearInterval(rec.tick);
+  rec.tick = null;
   rec.discard = !!discard;
+  session.ending = true;
   if (rec.mode === 'recording') rec.accumMs += performance.now() - rec.startedAt;
   rec.seconds = Math.max(0, Math.floor(rec.accumMs / 1000));
-  try { rec.mr.stop(); } catch (e) {}
-  if (rec.stream) rec.stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
   rec.mode = 'idle';
+  onRecordingStopped(session, !!discard);
   updateRecUI();
 }
 
-function onRecordingStopped() {
-  const blob = new Blob(rec.chunks, { type: rec.mime || 'audio/webm' });
+function onRecordingStopped(session, discard) {
+  if (!session || session.finalized) return;
+  session.finalized = true;
   const duration = rec.seconds;
-  if (rec.audioCtx) { try { rec.audioCtx.close(); } catch (e) {} }
-  rec.audioCtx = null; rec.analyser = null; rec.chunks = [];
-  const discard = rec.discard; rec.discard = false;
-  if (discard) { toast('已丢弃这段录音'); return; }
-  if (duration < 1 || blob.size < 500) { toast('录音太短，已丢弃'); return; }
+  let blob = null;
+  if (!discard && !session.failureMessage) {
+    try {
+      appendMp3Data(session, session.encoder.flush());
+      blob = new Blob(session.chunks, { type: 'audio/mpeg' });
+    } catch (e) {
+      session.failureMessage = 'MP3 编码失败，录音已丢弃';
+    }
+  }
+  cleanupRecSession(session);
+  if (discard || session.failureMessage) {
+    toast(session.failureMessage || '已丢弃这段录音');
+    return;
+  }
+  if (duration < 1 || !blob || blob.size < 500) {
+    toast('录音太短，已丢弃');
+    return;
+  }
   const url = URL.createObjectURL(blob);
-  state.pending = { blob, mime: rec.mime || 'audio/webm', duration, url };
+  state.pending = { blob, mime: 'audio/mpeg', duration, url };
   openSaveModal(duration);
 }
 

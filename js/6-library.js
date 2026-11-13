@@ -18,12 +18,27 @@ function visibleStories() {
   const q = state.search.trim().toLowerCase();
   return state.stories.filter(s => {
     if (state.filter === 'fav' && !s.favorite) return false;
+    if (state.filter === 'mine' && s.mine === false) return false;
+    if (state.filter === 'theirs' && s.mine !== false) return false;
     if (q) {
       const hay = (s.title + ' ' + (s.note || '')).toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
   });
+}
+
+/* 同步角标：仅本机故事且未完成云端同步时展示 */
+function syncBadgeFor(s) {
+  if (typeof CloudSync === 'undefined' || !CloudSync.configured()) return '';
+  if (s.mine === false) return '';
+  if (!s.cloudId) {
+    if (s.syncState === 'pending') return '<i class="sync-badge is-wait">待同步</i>';
+    if (s.syncState === 'syncing') return '<i class="sync-badge is-wait">同步中</i>';
+    if (s.syncState === 'error') return '<i class="sync-badge is-err">同步失败</i>';
+    return '';
+  }
+  return '';
 }
 
 function renderStories() {
@@ -50,10 +65,12 @@ function renderStories() {
     const date = fmtDate(s.createdAt);
     const dur = fmtDur(s.duration);
     const note = s.note ? `<p class="s-note">${esc(s.note)}</p>` : '';
+    const who = s.mine === false ? '<i class="who-badge">她的</i>' : '';
+    const badge = syncBadgeFor(s);
     return `<article class="story-item" data-id="${s.id}">
-      <div class="s-cover ${now ? 's-cover-now' : ''}" data-action="play" role="button" aria-label="播放">${coverIcon}</div>
+      <div class="s-cover ${now ? 's-cover-now' : ''} ${s.mine === false ? 's-cover-her' : ''}" data-action="play" role="button" aria-label="播放">${coverIcon}</div>
       <div class="s-body">
-        <div class="s-top"><span class="s-title">${esc(s.title || '未命名故事')}</span><span class="s-date">${dur} · ${date}</span></div>
+        <div class="s-top"><span class="s-title">${who}${esc(s.title || '未命名故事')}</span><span class="s-date">${badge}${dur} · ${date}</span></div>
         ${note}
       </div>
       <div class="s-actions">
@@ -77,6 +94,7 @@ async function toggleFav(id) {
   s.favorite = !s.favorite;
   await dbPut(s);
   renderStories(); syncPlayerUI();
+  if (typeof onFavoriteToggled === 'function') onFavoriteToggled(s);
   toast(s.favorite ? '已收藏' : '已取消收藏');
 }
 
@@ -101,6 +119,7 @@ async function deleteStory(id) {
   if (_urlCache[id]) { URL.revokeObjectURL(_urlCache[id]); delete _urlCache[id]; }
   state.stories = state.stories.filter(x => x.id !== id);
   if (state.currentId === id) stopToEnd();
+  if (typeof onStoryDeletedLocally === 'function') onStoryDeletedLocally(s);
   renderStories(); updateStats();
   toast('已删除');
 }

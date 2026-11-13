@@ -117,7 +117,10 @@ audio.addEventListener('timeupdate', () => {
   const now = Math.floor(t);
   if (now > 0 && now - posSaveClock >= 5) {
     posSaveClock = now;
-    if (state.currentId) savePosition(state.currentId, t);
+    if (state.currentId) {
+      savePosition(state.currentId, t);
+      if (typeof onPositionSaved === 'function') onPositionSaved(state.currentId, t);
+    }
   }
 });
 audio.addEventListener('ended', () => {

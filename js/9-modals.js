@@ -40,7 +40,8 @@ $('#saveStoryBtn').addEventListener('click', async () => {
   state.stories.sort((a, b) => b.createdAt - a.createdAt);
   closeSaveModal();
   renderStories(); updateStats();
-  toast('已收进故事库，晚安');
+  if (typeof onStorySavedLocally === 'function') onStorySavedLocally(story);
+  toast((typeof CloudSync !== 'undefined' && CloudSync.configured()) ? '已收进故事库，正在加密同步' : '已收进故事库，晚安');
 });
 
 function openTimerModal() {

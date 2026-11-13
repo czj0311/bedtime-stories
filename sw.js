@@ -1,10 +1,12 @@
 /* 睡前故事 Service Worker：离线缓存，让 App 安装后可离线使用 */
-const CACHE = 'bedtime-stories-v3';
+const CACHE = 'bedtime-stories-v4';
 const CORE = [
   './', './index.html', './styles.css',
   './js/1-util.js', './js/2-state.js', './js/3-ambient.js',
   './js/4-recorder.js', './js/5-canvas.js', './js/6-library.js',
   './js/7-player.js', './js/8-timer.js', './js/9-modals.js', './js/10-events.js',
+  './js/11-crypto.js', './js/config.js', './js/12-cloud.js', './js/13-account.js',
+  './vendor/runtime.js',
   './assets/icon-192.png', './assets/icon-512.png',
   './manifest.webmanifest'
 ];
