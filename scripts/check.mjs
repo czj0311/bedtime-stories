@@ -8,7 +8,18 @@ const read = p => readFileSync(path.join(root, p), 'utf8');
 const exists = p => existsSync(path.join(root, p));
 
 const problems = [];
+const warns = [];
 const ok = (cond, msg) => { if (!cond) problems.push(msg); };
+
+// 读取 JWT 的 role 声明（只解载荷，不验签）：用于区分 anon 与 service_role。
+const jwtRole = k => {
+  const m = (k || '').match(/^eyJ[\w-]*\.([\w-]+)\./);
+  if (!m) return null;
+  try {
+    const payload = Buffer.from(m[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return JSON.parse(payload).role || null;
+  } catch (e) { return null; }
+};
 
 // 1. index.html 引用的本地脚本/样式全部存在
 const html = read('index.html');
@@ -29,20 +40,26 @@ ok(html.includes('js/11-crypto.js'), '缺少加密模块引用');
 ok(html.includes('js/12-cloud.js'), '缺少云端模块引用');
 ok(html.includes('js/13-account.js'), '缺少账号模块引用');
 
-// 4. 密钥卫生：config 占位为空、任何文件不含真实密钥特征
+// 4. 配置卫生：允许留空（此时为「仅本机」模式）；一旦填 key，就必须是 anon/publishable 且 URL 合法
 const config = read('js/config.js');
 const url = config.match(/SUPABASE_URL:\s*'([^']*)'/)[1];
 const key = config.match(/SUPABASE_ANON_KEY:\s*'([^']*)'/)[1];
-ok(url === '' && key === '', 'js/config.js 中的占位值应为空字符串');
+if (url && !key) warns.push('js/config.js 已填 SUPABASE_URL，但 SUPABASE_ANON_KEY 仍为空——当前会以「仅本机」模式运行');
+if (key) {
+  ok(/^https:\/\/[a-z0-9.-]+$/i.test(url), `SUPABASE_URL 不是合法的 https 地址：${url || '(空)'}`);
+  ok(/^sb_publishable_/.test(key) || jwtRole(key) === 'anon',
+    'SUPABASE_ANON_KEY 必须是 anon / sb_publishable_ 开头的公开密钥');
+}
+ok(jwtRole(key) !== 'service_role', 'SUPABASE_ANON_KEY 是 service_role 密钥——它绕过所有 RLS，绝不能写进网页，请立即轮换');
 
-// 5. 密钥卫生：剔除注释后，正文不应包含 service_role / JWT 形态真实密钥
+// 5. 密钥卫生：config.js 之外不得出现 JWT 形态密钥；任何文件都不得出现 service_role
 const stripComments = (c, sql) => sql
   ? c.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
   : c.replace(/^\s*\/\/[^\n]*/gm, '').replace(/^\s*\/\*[\s\S]*?\*\//g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 for (const f of ['js/config.js', 'supabase/schema.sql', 'index.html', 'js/12-cloud.js']) {
   const c = stripComments(read(f), f.endsWith('.sql'));
   ok(!c.includes('service_role'), `${f} 不应包含 service_role 字样`);
-  ok(!/eyJ[A-Za-z0-9_-]{20,}/.test(c), `${f} 不应包含 JWT 形态的真实密钥`);
+  if (f !== 'js/config.js') ok(!/eyJ[A-Za-z0-9_-]{20,}/.test(c), `${f} 不应包含 JWT 形态的真实密钥`);
 }
 
 // 5. SQL 脚本安全要点
@@ -77,6 +94,11 @@ for (const id of ['accountMask', 'cloudChip', 'accountBtn', 'acctBody']) {
 }
 const css = read('styles.css');
 ok(css.includes('.cloud-chip'), 'styles.css 缺少 cloud-chip 样式');
+
+if (warns.length) {
+  console.warn('提示：');
+  for (const w of warns) console.warn(' - ' + w);
+}
 
 if (problems.length) {
   console.error('自检未通过：');
