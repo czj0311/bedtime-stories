@@ -39,6 +39,10 @@ ok(html.includes('vendor/runtime.js'), '缺少 vendor/runtime.js 脚本引用');
 ok(html.includes('js/11-crypto.js'), '缺少加密模块引用');
 ok(html.includes('js/12-cloud.js'), '缺少云端模块引用');
 ok(html.includes('js/13-account.js'), '缺少账号模块引用');
+const cloud = read('js/12-cloud.js');
+ok(/Array\.isArray\(data\)/.test(cloud), '12-cloud.js 必须兼容 PostgREST 对 RETURNS TABLE 返回数组的形态');
+ok(/completeSetup/.test(cloud) && /completeSetup/.test(read('js/13-account.js')),
+  '缺少「创建者补完口令设置」恢复路径');
 
 // 4. 配置卫生：允许留空（此时为「仅本机」模式）；一旦填 key，就必须是 anon/publishable 且 URL 合法
 const config = read('js/config.js');

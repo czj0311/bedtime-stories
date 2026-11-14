@@ -108,7 +108,19 @@ function phaseHtml(s, phase) {
   }
   if (phase === 'locked' || phase === 'novault') {
     if (!s.vault) {
-      return `<div class="acct-note">创建者还没完成口令设置。若你是创建者，刷新页面后再打开双人空间设置。</div>`;
+      if (s.isCreator) {
+        return `
+          <p class="acct-note">空间已建好，但加密口令还没保存成功。在这里补完设置即可，<b>不需要重置</b>。</p>
+          <form id="acctFinishForm" class="acct-form">
+            <p class="acct-label">设置恢复短语（两人共用，当面告诉她）</p>
+            <input type="password" id="acctFinishPhrase" placeholder="4 个以上随机词语，至少 12 个字符" autocomplete="new-password">
+            <p class="acct-tip" id="acctFinishStrength">短语是全部故事的唯一钥匙，遗忘后无法找回</p>
+            <input type="password" id="acctFinishPhrase2" placeholder="再输入一遍确认" autocomplete="new-password">
+            <button class="primary-btn" type="submit">完成设置</button>
+          </form>`;
+      }
+      return `<div class="acct-note">创建者还没完成口令设置。等她在自己手机上补完后，点下面的按钮检查；也可以直接刷新页面。</div>
+        <div class="acct-form"><button class="chip" type="button" id="acctRefreshBtn">已设置好？检查一次</button></div>`;
     }
     return `
       <form id="acctUnlockForm" class="acct-form">
@@ -161,6 +173,13 @@ $('#acctImportBtn').addEventListener('click', async () => {
 });
 
 $('#acctBody').addEventListener('click', e => {
+  if (e.target.closest('#acctRefreshBtn')) {
+    CloudSync.refreshCouple().then(() => {
+      _acctRendered = ''; renderAccount(); updateCloudChip();
+      toast(CloudSync.snapshot().vault ? '已同步，输入恢复短语解锁' : '创建者还没完成设置，稍后再试');
+    }).catch(() => toast('检查失败，稍后再试'));
+    return;
+  }
   const tab = e.target.closest('[data-tab]');
   if (!tab) return;
   $$('#acctBody .acct-tabs .chip').forEach(b => b.classList.toggle('is-on', b === tab));
@@ -200,6 +219,16 @@ $('#acctBody').addEventListener('submit', async e => {
       if (!ok) toast('注册成功！去邮箱点一下确认链接，再回来登录');
       else { toast('注册成功'); renderAccount(); }
       updateCloudChip();
+    } else if (form.id === 'acctFinishForm') {
+      const f1 = $('#acctFinishPhrase').value;
+      const f2 = $('#acctFinishPhrase2').value;
+      if (f1 !== f2) { toast('两次输入的短语不一致'); return; }
+      _acctBusy(btn);
+      await CloudSync.completeSetup(f1);
+      _acctRendered = '';
+      toast('设置完成，把邀请码和短语当面告诉她');
+      renderAccount(); updateCloudChip();
+      CloudSync.syncAll({ silent: true });
     } else if (form.id === 'acctCreateForm') {
       const p1 = $('#acctPhrase').value;
       const p2 = $('#acctPhrase2').value;
@@ -230,10 +259,11 @@ $('#acctBody').addEventListener('submit', async e => {
 }, true);
 
 $('#acctBody').addEventListener('input', e => {
-  if (e.target && e.target.id === 'acctPhrase') {
-    const tip = $('#acctStrength');
+  const el = e.target;
+  if (el && (el.id === 'acctPhrase' || el.id === 'acctFinishPhrase')) {
+    const tip = $(el.id === 'acctPhrase' ? '#acctStrength' : '#acctFinishStrength');
     if (tip) {
-      const r = BedtimeCrypto.passStrength(e.target.value);
+      const r = BedtimeCrypto.passStrength(el.value);
       tip.textContent = r.msg + (r.ok ? ' · 够强了' : '');
       tip.classList.toggle('is-ok', r.ok);
     }

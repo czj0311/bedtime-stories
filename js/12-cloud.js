@@ -13,6 +13,7 @@ const CloudSync = (() => {
     user: null,            // {id,email}
     coupleId: null,
     partnerId: null,
+    isCreator: false,     // 当前用户是否为该空间的创建者
     key: null,             // CryptoKey（解锁后驻留内存）
     vault: null,           // {salt,iterations,wrappedKey,iv,version}
     inviteCode: null,
@@ -30,7 +31,8 @@ const CloudSync = (() => {
   function snapshot() {
     return {
       phase: st.phase, user: st.user, coupleId: st.coupleId,
-      partnerId: st.partnerId, inviteCode: st.inviteCode,
+      partnerId: st.partnerId, isCreator: st.isCreator,
+      inviteCode: st.inviteCode,
       unlocked: !!st.key, lastSyncAt: st.lastSyncAt,
       pendingUploads: st.pendingUploads, vault: st.vault
     };
@@ -144,12 +146,15 @@ const CloudSync = (() => {
 
     const { data: couple, error: e2 } = await st.client
       .from('couples')
-      .select('id, invite_code, key_salt, wrapped_key, key_iv, kdf_iterations, key_version')
+      .select('id, created_by, invite_code, key_salt, wrapped_key, key_iv, kdf_iterations, key_version')
       .eq('id', st.coupleId).maybeSingle();
     if (e2 || !couple || !couple.wrapped_key) {
       // 创建者尚未设置口令：等待其先完成设置
+      st.isCreator = !!(couple && couple.created_by === st.user.id);
+      st.inviteCode = (couple && couple.invite_code) || st.inviteCode;
       st.vault = null; st.phase = 'locked'; notify('novault'); return;
     }
+    st.isCreator = couple.created_by === st.user.id;
     st.inviteCode = couple.invite_code || st.inviteCode;
     st.vault = {
       salt: couple.key_salt, wrappedKey: couple.wrapped_key, iv: couple.key_iv,
@@ -161,14 +166,15 @@ const CloudSync = (() => {
     notify(st.phase);
   }
 
-  /* 创建者：建空间 + 生成双人密钥并写入包裹元数据 */
-  async function createCouple(passphrase) {
-    const strength = BedtimeCrypto.passStrength(passphrase);
-    if (!strength.ok) throw new Error(strength.msg);
-    const { data, error } = await st.client.rpc('create_couple');
-    if (error) throw new Error(error.message);
-    st.coupleId = data.id;
-    st.inviteCode = data.invite_code;
+  /* PostgREST 对 RETURNS TABLE 的函数一律返回数组，即使只有一行。 */
+  function rpcFirstRow(data) {
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || !row.id) throw new Error('云端未返回空间信息，请稍后重试');
+    return row;
+  }
+
+  /* 把双人密钥包裹写入当前空间；创建与「补完设置」共用。 */
+  async function writeVault(passphrase) {
     const { key, vault } = await BedtimeCrypto.wrapCoupleKey(passphrase);
     const { error: upErr } = await st.client.from('couples')
       .update({
@@ -180,7 +186,45 @@ const CloudSync = (() => {
     st.key = key; st.vault = vault; st.phase = 'ready';
     await loadCouple();
     subscribeRealtime();
-    return data.invite_code;
+  }
+
+  /* 创建者：建空间 + 生成双人密钥并写入包裹元数据 */
+  async function createCouple(passphrase) {
+    const strength = BedtimeCrypto.passStrength(passphrase);
+    if (!strength.ok) throw new Error(strength.msg);
+    const { data, error } = await st.client.rpc('create_couple');
+    if (error) throw new Error(error.message);
+    const row = rpcFirstRow(data);
+    st.coupleId = row.id;
+    st.inviteCode = row.invite_code;
+    try {
+      await writeVault(passphrase);
+    } catch (e) {
+      throw new Error((e && e.message ? e.message : '密钥保存失败') + '；可重新打开双人空间，在「补完设置」里重试');
+    }
+    return row.invite_code;
+  }
+
+  /* 恢复路径：空间已建好但密钥包裹未写入时，创建者可直接补完设置，无需重置数据。 */
+  async function completeSetup(passphrase) {
+    if (!st.user || !st.coupleId) throw new Error('请先登录并进入你们的空间');
+    if (!st.isCreator) throw new Error('只有创建者可以补完口令设置');
+    const strength = BedtimeCrypto.passStrength(passphrase);
+    if (!strength.ok) throw new Error(strength.msg);
+    const { data: row } = await st.client.from('couples')
+      .select('wrapped_key, invite_code').eq('id', st.coupleId).maybeSingle();
+    if (row && row.wrapped_key) { await loadCouple(); return st.inviteCode; }
+    st.inviteCode = (row && row.invite_code) || st.inviteCode;
+    await writeVault(passphrase);
+    return st.inviteCode;
+  }
+
+  /* 加入者：创建者补完设置后手动刷新状态 */
+  async function refreshCouple() {
+    if (!st.user) return;
+    await loadCouple();
+    if (st.vault && !st.key) st.phase = 'locked';
+    notify('refreshed');
   }
 
   /* 加入者：凭邀请码进入，再用创建者私下告知的口令解开双人密钥 */
@@ -400,7 +444,8 @@ const CloudSync = (() => {
   return {
     init, onChange, snapshot,
     configured, active, lock, signOut,
-    signUp, signIn, createCouple, joinCouple, unlock,
+    signUp, signIn, createCouple, completeSetup, refreshCouple,
+    joinCouple, unlock,
     uploadStory, fetchRemoteStory, saveStoryState, deleteCloudStory,
     syncAll, retryPendingUploads, addTombstone,
     get state() { return st; }
