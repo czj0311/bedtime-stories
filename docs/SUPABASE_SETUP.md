@@ -94,6 +94,12 @@ const BedtimeConfig = {
 **Q：执行脚本时报 `42501: must be owner of table objects`？**  
 旧版脚本含有一句对 Supabase 系统表 `storage.objects` 的 `alter table`，平台自 2025 年 4 月起禁止此操作。新版脚本已删掉该行（那张表的行级安全本就默认开启）。重新完整粘贴执行新版 `supabase/schema.sql` 即可——脚本可重复执行，不会产生重复数据。
 
+**Q：注册时提示 `email signups are disabled` / 「注册被云端拒绝」？**
+这是 Supabase 的「允许新用户注册」总开关被关了（第 3 步只需关 `Confirm email`，不要关 `Allow new users to sign up`）。两种解法，**推荐第一种**（双人私密应用不需要对全网开放注册）：
+
+1. **控制台手动建账号（推荐，注册开关保持关闭）**：`Authentication` → `Users` → `Add user` / `Create new user`，填邮箱和密码，勾选 **Auto Confirm User**，为两个人各建一个。之后 App 里直接用「登录」标签，不走注册。这样任何陌生人都无法注册进你们的项目。
+2. **开放注册**：`Authentication` → `Providers` → `Email`，把 `Allow new users to sign up` / `Enable signups` 打开并 Save（`Confirm email` 保持关闭）。两人注册完可以再把这个开关关回去，不影响已建账号登录。
+
 **Q：打开双人空间显示「当前为仅本机模式」？**  
 config.js 没填或没部署成功。回第 5 步检查。
 

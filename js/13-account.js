@@ -168,6 +168,20 @@ $('#acctBody').addEventListener('click', e => {
   $('#acctSignupForm').hidden = tab.dataset.tab !== 'signup';
 });
 
+/* 把常见的英文 Auth 报错翻成可执行的中文提示 */
+function friendlyAuthError(err) {
+  const msg = (err && err.message) || '';
+  const code = (err && err.code) || '';
+  if (code === 'signup_disabled' || /signups?\s+(are|is)\s+disabled|email signups are disabled/i.test(msg)) {
+    return '云端关闭了公开注册。请在 Supabase 控制台手动建好两个账号后使用「登录」，或打开「允许新用户注册」开关再注册。';
+  }
+  if (/invalid login credentials/i.test(msg)) return '邮箱或密码不正确，检查一下再试';
+  if (/user already registered|already been registered/i.test(msg)) return '这个邮箱已注册，请切到「登录」';
+  if (/email not confirmed/i.test(msg)) return '邮箱还没确认：去邮箱点确认链接，或在控制台关闭 Confirm email';
+  if (/password should be at least|password is too short/i.test(msg)) return '密码太短，至少 8 位';
+  return msg || '操作失败，稍后再试';
+}
+
 const _acctBusy = el => { if (el) { el.disabled = true; el.textContent = '请稍候…'; setTimeout(() => { el.disabled = false; el.textContent = el.dataset.label || '确定'; }, 8000); } };
 
 $('#acctBody').addEventListener('submit', async e => {
@@ -211,7 +225,7 @@ $('#acctBody').addEventListener('submit', async e => {
       renderAccount(); updateCloudChip();
     }
   } catch (err) {
-    toast((err && err.message) || '操作失败，稍后再试');
+    toast(friendlyAuthError(err));
   }
 }, true);
 
