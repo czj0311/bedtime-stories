@@ -3,6 +3,6 @@
    只允许填 anon/publishable key —— service_role 密钥绝不能出现在网页里。
    两个值都为空时，应用照常以「仅本机」模式运行，不联网。 */
 const BedtimeConfig = {
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: ''
+  SUPABASE_URL: 'https://ygvaqsjgisitmxjaezvp.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_WD44rvLZVS-FGMzor2opFg_ZhOOpXBa'
 };
