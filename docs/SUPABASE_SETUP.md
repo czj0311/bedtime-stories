@@ -11,7 +11,7 @@
 
 ## 第 1 步：注册 Supabase（免费）
 
-1. 打开 https://supabase.com → 点 `Start your project` → 用邮箱注册一个 Supabase 账号（这是你们项目的管理员账号，别告诉她密码也行——但她要知情）。
+1. 打开 <https://supabase.com> → 点 `Start your project` → 用邮箱注册一个 Supabase 账号（这是你们项目的管理员账号，别告诉她密码也行——但她要知情）。
 2. `New project`：名字随便（如 `bedtime`），数据库密码设一个能记住的（存好，比如放进备忘录），地区选 **Northeast Asia (Tokyo)** 或 **Southeast Asia (Singapore)**（离国内近，延迟低）。
 3. 等约 2 分钟，项目状态变成绿色 Ready。
 
@@ -32,12 +32,16 @@
 
 ## 第 4 步：拿到两串“钥匙”
 
-`Project Settings`（齿轮）→ `API`：
+`Project Settings`（齿轮）→ `API Keys`（新版控制台；也可直接访问
+`https://supabase.com/dashboard/project/<你的项目ID>/settings/api-keys`）：
 
 - **Project URL**：形如 `https://abcd1234.supabase.co`
-- **anon public** key（一长串 `eyJ...`）
+- **公开密钥**，两种任选其一，本项目都支持：
+  - 新版 **Publishable key**：`sb_publishable_...` 开头（推荐）；首次使用若显示 `Create new API keys`，点一下生成。
+  - 旧版 **anon key**：在 `Legacy anon, service_role API keys` 标签页里，`eyJ...` 开头。
+  - 项目页右上角的 **Connect** 弹窗里也能直接看到这两样。
 
-⚠️ 只用这两样。**`service_role` 开头的密钥永远不要填进网页**——它绕过所有权限检查，泄露等于把整个库交出去。
+⚠️ 只用这两样。**`sb_secret_...` / `service_role` 开头的密钥永远不要填进网页或发给任何人**——它绕过所有权限检查，泄露等于把整个库交出去。
 
 ## 第 5 步：填配置并部署
 
@@ -50,8 +54,8 @@ const BedtimeConfig = {
 };
 ```
 
-2. 提交并部署到 GitHub Pages（和平时更新网站一样）。
-3. 手机上重新打开网址；如果之前安装过，先刷新一次网页版让缓存更新（或等几小时自动更新）。
+1. 提交并部署到 GitHub Pages（和平时更新网站一样）。
+2. 手机上重新打开网址；如果之前安装过，先刷新一次网页版让缓存更新（或等几小时自动更新）。
 
 ## 第 6 步：你们俩绑定
 
@@ -87,22 +91,22 @@ const BedtimeConfig = {
 
 ## 常见问题
 
-**Q：执行脚本时报 `42501: must be owner of table objects`？**
+**Q：执行脚本时报 `42501: must be owner of table objects`？**  
 旧版脚本含有一句对 Supabase 系统表 `storage.objects` 的 `alter table`，平台自 2025 年 4 月起禁止此操作。新版脚本已删掉该行（那张表的行级安全本就默认开启）。重新完整粘贴执行新版 `supabase/schema.sql` 即可——脚本可重复执行，不会产生重复数据。
 
-**Q：打开双人空间显示「当前为仅本机模式」？**
+**Q：打开双人空间显示「当前为仅本机模式」？**  
 config.js 没填或没部署成功。回第 5 步检查。
 
-**Q：她说“恢复短语不正确”？**
-短语必须和你创建时输入的**完全一致**（区分空格）。确认不了就只能重置整个空间（云端数据清空重来）：在 SQL Editor 依次执行
-`delete from story_states;` `delete from stories;` `delete from couple_members;` `delete from couples;`
+**Q：她说“恢复短语不正确”？**  
+短语必须和你创建时输入的**完全一致**（区分空格）。确认不了就只能重置整个空间（云端数据清空重来）：在 SQL Editor 依次执行  
+`delete from story_states;` `delete from stories;` `delete from couple_members;` `delete from couples;`  
 再到 Storage → `story-audio` → 全选删除残留音频。然后两人重新登录走创建/加入流程。本机数据不受影响。
 
-**Q：想换更强 / 更弱的恢复短语？**
+**Q：想换更强 / 更弱的恢复短语？**  
 同上：重置空间后重新创建。云端旧密文会一并清掉。
 
-**Q：收不到确认邮件？**
+**Q：收不到确认邮件？**  
 回第 3 步关闭邮箱验证，或换邮箱再试。
 
-**Q：录音上传时提示保持前台？**
+**Q：录音上传时提示保持前台？**  
 iOS 对后台网页限制严格，上传几十秒的录音一般没问题；上传大文件时尽量让页面开着。
