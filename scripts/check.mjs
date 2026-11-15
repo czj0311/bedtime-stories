@@ -44,6 +44,19 @@ ok(/Array\.isArray\(data\)/.test(cloud), '12-cloud.js 必须兼容 PostgREST 对
 ok(/completeSetup/.test(cloud) && /completeSetup/.test(read('js/13-account.js')),
   '缺少「创建者补完口令设置」恢复路径');
 
+// 3b. 上传同步与设备兼容的回归断言
+const schemaSql = read('supabase/schema.sql');
+const insGrant = schemaSql.match(/grant insert \(([\s\S]*?)\) on table public\.stories/i);
+ok(!!insGrant && /\bid\b/.test(insGrant[1]),
+  'stories 的 INSERT 列授权必须包含 id（客户端显式写主键，否则上传必报 42501）');
+ok(exists('supabase/patch-grants.sql'), '缺少一次性权限补丁 supabase/patch-grants.sql');
+ok(/网络优先|network.first/i.test(sw) && /config\\?\.js/.test(sw),
+  'Service Worker 必须对应用外壳网络优先，且单独处理 config.js');
+ok(/build-vendor|bedtime-stories-v\d/.test(sw), 'Service Worker 缓存版本未设置');
+ok(html.includes('js/14-diagnostics.js'), '缺少设备诊断模块引用');
+ok(html.includes('media="print" onload'), '外部字体必须非阻塞加载，否则弱网会卡住首屏');
+ok(/getLastError/.test(cloud) && /recordError/.test(cloud), '上传失败原因必须被记录，不能只显示「同步失败」');
+
 // 4. 配置卫生：允许留空（此时为「仅本机」模式）；一旦填 key，就必须是 anon/publishable 且 URL 合法
 const config = read('js/config.js');
 const url = config.match(/SUPABASE_URL:\s*'([^']*)'/)[1];

@@ -22,8 +22,45 @@ const CloudSync = (() => {
     client: null,
     channel: null,
     syncing: false,
-    hiddenAt: null
+    hiddenAt: null,
+    lastError: null,        // 最近一次同步失败的完整原因
+    networkFailUntil: 0     // 网络类失败后的自动重试退避截止时间戳
   };
+
+  /* iOS 无痕模式 / 独立 PWA 下 localStorage 可能不可写：
+     包装成带内存兜底的 StorageAdapter，避免登录会话直接崩掉。 */
+  function safeStorage() {
+    const mem = {};
+    let ls = null;
+    try {
+      const probe = '__bs_probe__';
+      localStorage.setItem(probe, '1');
+      localStorage.removeItem(probe);
+      ls = localStorage;
+    } catch (e) { ls = null; }
+    return {
+      getItem(k) { try { const v = ls && ls.getItem(k); return v == null ? (k in mem ? mem[k] : null) : v; } catch (e) { return k in mem ? mem[k] : null; } },
+      setItem(k, v) { mem[k] = v; try { if (ls) ls.setItem(k, v); } catch (e) {} },
+      removeItem(k) { delete mem[k]; try { if (ls) ls.removeItem(k); } catch (e) {} }
+    };
+  }
+
+  function isNetworkError(msg) {
+    return /failed to fetch|networkerror|network request failed|load failed|timed? ?out|timeout|ERR_|fetch failed|请求超时/i.test(String(msg || ''));
+  }
+
+  function recordError(stage, err) {
+    const msg = (err && err.message) || String(err || '未知错误');
+    st.lastError = { at: Date.now(), stage, message: msg };
+    try { localStorage.setItem('bs-last-sync-error', JSON.stringify(st.lastError)); } catch (e) {}
+    if (isNetworkError(msg)) st.networkFailUntil = Date.now() + 60 * 1000;
+    return msg;
+  }
+
+  function getLastError() {
+    if (st.lastError) return st.lastError;
+    try { return JSON.parse(localStorage.getItem('bs-last-sync-error') || 'null'); } catch (e) { return null; }
+  }
 
   function notify(reason) {
     listeners.forEach(fn => { try { fn(reason, snapshot()); } catch (e) {} });
@@ -69,7 +106,10 @@ const CloudSync = (() => {
     try {
       st.client = window.BedtimeVendor.createClient(
         BedtimeConfig.SUPABASE_URL, BedtimeConfig.SUPABASE_ANON_KEY,
-        { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'bs-auth' } }
+        { auth: {
+          persistSession: true, autoRefreshToken: true,
+          storageKey: 'bs-auth', storage: safeStorage()
+        } }
       );
     } catch (e) {
       st.phase = 'unconfigured'; notify('unconfigured'); return;
@@ -114,9 +154,26 @@ const CloudSync = (() => {
     }
     return !!(data && data.session); // false = 需要先去邮箱确认
   }
+  function withTimeout(promise, ms, label) {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error(label + '超时（' + (ms / 1000) + ' 秒）——请检查当前网络能否访问云端')), ms);
+      Promise.resolve(promise).then(
+        v => { clearTimeout(t); resolve(v); },
+        e => { clearTimeout(t); reject(e); }
+      );
+    });
+  }
   async function signIn(email, password) {
-    const { error } = await st.client.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    let res;
+    try {
+      res = await withTimeout(st.client.auth.signInWithPassword({ email, password }), 20000, '登录请求');
+    } catch (e) {
+      recordError('登录', e);
+      throw e;
+    }
+    const { error } = res || {};
+    if (error) { recordError('登录', error); throw error; }
+    st.lastError = null;
     await restoreSession();
   }
   async function signOut() {
@@ -290,14 +347,25 @@ const CloudSync = (() => {
     const cloudId = BedtimeCrypto.randomUuid();
     const path = audioPathFor(cloudId);
 
-    const content = await BedtimeCrypto.encryptJson(st.key, { t: story.title || '', n: story.note || '' });
-    const bytes = await BedtimeCrypto.encryptBytes(st.key, await story.blob.arrayBuffer());
+    let content, bytes;
+    try {
+      content = await BedtimeCrypto.encryptJson(st.key, { t: story.title || '', n: story.note || '' });
+      bytes = await BedtimeCrypto.encryptBytes(st.key, await story.blob.arrayBuffer());
+    } catch (e) {
+      recordError('本机加密', e);
+      throw new Error('① 本机加密失败：' + ((e && e.message) || '此设备不支持 Web 加密'));
+    }
 
-    // 先传音频，成功后再写行 —— 对方收到通知时音频一定已可下载
+    // 先传音频，成功后再写行 —— 对方收到通知时音频一定已可下载。
+    // 统一包成 Blob：iOS Safari 对 fetch 直接发送裸 ArrayBuffer 兼容性较差。
+    const audioBlob = new Blob([bytes.cipher], { type: 'application/octet-stream' });
     const { error: upErr } = await st.client.storage
       .from(AUDIO_BUCKET)
-      .upload(path, bytes.cipher, { contentType: 'application/octet-stream', upsert: false });
-    if (upErr) throw new Error('音频上传失败：' + (upErr.message || '网络异常'));
+      .upload(path, audioBlob, { contentType: 'application/octet-stream', upsert: false });
+    if (upErr) {
+      recordError('音频上传', upErr);
+      throw new Error('② 音频上传失败：' + (upErr.message || '网络异常'));
+    }
 
     const { error: insErr } = await st.client.from('stories').insert({
       id: cloudId,
@@ -313,8 +381,11 @@ const CloudSync = (() => {
     });
     if (insErr) {
       try { await st.client.storage.from(AUDIO_BUCKET).remove([path]); } catch (e) {}
-      throw new Error('故事记录写入失败：' + (insErr.message || ''));
+      recordError('故事记录写入', insErr);
+      throw new Error('③ 故事记录写入失败：' + (insErr.message || '') + '（多为数据库权限未补齐，见 supabase/patch-grants.sql）');
     }
+    st.lastError = null;
+    try { localStorage.removeItem('bs-last-sync-error'); } catch (e) {}
     return { cloudId, byteSize: bytes.cipher.byteLength };
   }
 
@@ -372,8 +443,9 @@ const CloudSync = (() => {
   async function syncAll(opts) {
     opts = opts || {};
     if (!active() || st.syncing || !online()) return { skipped: true };
+    if (!opts.force && Date.now() < st.networkFailUntil) return { skipped: true, reason: 'network-backoff' };
     st.syncing = true; notify('syncing');
-    const result = { uploaded: 0, added: 0, deleted: 0, errors: [] };
+    const result = { uploaded: 0, added: 0, deleted: 0, errors: [], errorMessages: [] };
     try {
       // 1. 处理离线期间本机删除的故事
       const tombs = loadTombstones();
@@ -423,7 +495,9 @@ const CloudSync = (() => {
     const pending = typeof cloudPendingStories === 'function' ? cloudPendingStories() : [];
     st.pendingUploads = pending.length;
     notify('pending-changed');
+    let networkBroken = false;
     for (const story of pending) {
+      if (networkBroken) break; // 网络断了就不再逐条重试，避免刷屏与流量浪费
       try {
         if (typeof onStorySyncState === 'function') onStorySyncState(story.id, 'syncing');
         const r = await uploadStory(story);
@@ -435,9 +509,17 @@ const CloudSync = (() => {
           if (result) result.uploaded++;
         }
       } catch (e) {
-        if (typeof onStorySyncState === 'function') onStorySyncState(story.id, 'error');
+        const msg = recordError('同步', e);
+        if (result) {
+          result.errors.push(story.id);
+          if (!result.errorMessages) result.errorMessages = [];
+          result.errorMessages.push(msg);
+        }
+        if (typeof onStorySyncState === 'function') onStorySyncState(story.id, 'error', msg);
+        if (isNetworkError(msg)) networkBroken = true;
       }
     }
+    if (st.lastError) notify('sync-error');
     notify('pending-changed');
   }
 
@@ -448,6 +530,8 @@ const CloudSync = (() => {
     joinCouple, unlock,
     uploadStory, fetchRemoteStory, saveStoryState, deleteCloudStory,
     syncAll, retryPendingUploads, addTombstone,
+    getLastError, recordError, isNetworkError,
+    forceSync() { st.networkFailUntil = 0; st.lastError = null; return syncAll({ force: true }); },
     get state() { return st; }
   };
 })();

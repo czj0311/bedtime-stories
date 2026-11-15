@@ -35,7 +35,11 @@ function syncBadgeFor(s) {
   if (!s.cloudId) {
     if (s.syncState === 'pending') return '<i class="sync-badge is-wait">待同步</i>';
     if (s.syncState === 'syncing') return '<i class="sync-badge is-wait">同步中</i>';
-    if (s.syncState === 'error') return '<i class="sync-badge is-err">同步失败</i>';
+    if (s.syncState === 'error') {
+      const lastErr = CloudSync.getLastError && CloudSync.getLastError();
+      const tip = s.lastSyncError || (lastErr && lastErr.message) || '原因未记录';
+      return `<i class="sync-badge is-err" title="${esc(String(tip))}">同步失败</i>`;
+    }
     return '';
   }
   return '';

@@ -206,9 +206,11 @@ grant update (key_salt, wrapped_key, key_iv, kdf_iterations, key_version)
 grant select on table public.couple_members to authenticated;
 
 -- 不授予正文列 UPDATE：首版客户端不能编辑 content_cipher / content_iv。
+-- 注意：客户端显式写入主键 id，因此 id 必须包含在 INSERT 列授权里，
+-- 否则整条 INSERT 会因列权限不足报 42501（表现为「同步失败」）。
 grant select, delete on table public.stories to authenticated;
 grant insert (
-  couple_id, author_id, content_cipher, content_iv,
+  id, couple_id, author_id, content_cipher, content_iv,
   audio_path, audio_iv, mime, duration, byte_size
 ) on table public.stories to authenticated;
 grant update (audio_path, audio_iv, mime, duration, byte_size)
@@ -217,7 +219,7 @@ grant update (audio_path, audio_iv, mime, duration, byte_size)
 grant select on table public.story_states to authenticated;
 grant insert (story_id, user_id, favorite, position)
   on table public.story_states to authenticated;
-grant update (favorite, position) on table public.story_states to authenticated;
+grant update (favorite, position, updated_at) on table public.story_states to authenticated;
 
 alter table public.couples enable row level security;
 alter table public.couple_members enable row level security;

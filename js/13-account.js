@@ -19,7 +19,9 @@ function updateCloudChip() {
   if (!CloudSync.configured()) { chip.hidden = true; return; }
   chip.hidden = false;
   if (s.phase === 'ready') {
-    if (s.pendingUploads > 0) { chip.textContent = `待同步 ${s.pendingUploads}`; chip.className = 'cloud-chip is-warn'; }
+    const lastErr = CloudSync.getLastError && CloudSync.getLastError();
+    if (s.pendingUploads > 0 && lastErr) { chip.textContent = '同步失败 · 点此查看'; chip.className = 'cloud-chip is-warn'; }
+    else if (s.pendingUploads > 0) { chip.textContent = `待同步 ${s.pendingUploads}`; chip.className = 'cloud-chip is-warn'; }
     else if (CloudSync.state.syncing) { chip.textContent = '同步中…'; chip.className = 'cloud-chip is-busy'; }
     else if (navigator.onLine === false) { chip.textContent = '离线待同步'; chip.className = 'cloud-chip is-warn'; }
     else { chip.textContent = s.lastSyncAt ? `已同步 ${fmtSyncTime(s.lastSyncAt)}` : '已连接'; chip.className = 'cloud-chip is-ok'; }
@@ -46,6 +48,7 @@ function renderAccount() {
   if (html !== _acctRendered) { body.innerHTML = html; _acctRendered = html; }
   $('#acctLockBtn').hidden = !(phase === 'ready');
   $('#acctImportBtn').hidden = !(phase === 'ready' && state.stories.some(x => !x.cloudId && x.mine !== false));
+  $('#acctRetryBtn').hidden = !(phase === 'ready' && state.stories.some(x => !x.cloudId && x.syncState === 'error'));
   $('#acctSignoutBtn').hidden = (phase === 'signedout' || phase === 'unconfigured' || phase === 'nosupport');
 }
 
@@ -136,9 +139,14 @@ function phaseHtml(s, phase) {
     const partner = s.partnerId
       ? `<p class="acct-ok">你们俩都已连接，内容端到端加密同步中</p>`
       : `<p class="acct-tip">她还没加入；加入后这里会变成两人的空间</p>`;
+    const lastErr = CloudSync.getLastError && CloudSync.getLastError();
+    const errBox = lastErr
+      ? `<div class="acct-invite"><p class="acct-label">最近一次同步失败 · ${esc(lastErr.stage || '同步')}</p><code>${esc(lastErr.message || '')}</code></div>`
+      : '';
     return `
       <p class="acct-label">当前登录：${escEmail}</p>
       ${partner}
+      ${errBox}
       ${invite}
       <p class="acct-tip">上次同步：${s.lastSyncAt ? fmtSyncTime(s.lastSyncAt) : '刚刚'} · 待上传 ${s.pendingUploads} 条</p>`;
   }
@@ -160,6 +168,14 @@ $('#acctSignoutBtn').addEventListener('click', async () => {
   await CloudSync.signOut();
   renderAccount(); updateCloudChip();
   toast('已退出账号');
+});
+$('#acctRetryBtn').addEventListener('click', async () => {
+  toast('正在重试同步…');
+  try {
+    const r = await CloudSync.forceSync();
+    renderAccount(); updateCloudChip(); renderStories();
+    toast(r && r.uploaded ? `已补传 ${r.uploaded} 条` : '仍未成功，点「网络诊断」查看原因');
+  } catch (e) { toast('重试失败：' + ((e && e.message) || '未知错误')); }
 });
 $('#acctImportBtn').addEventListener('click', async () => {
   const olds = state.stories.filter(x => !x.cloudId && x.mine !== false);
@@ -198,6 +214,9 @@ function friendlyAuthError(err) {
   if (/user already registered|already been registered/i.test(msg)) return '这个邮箱已注册，请切到「登录」';
   if (/email not confirmed/i.test(msg)) return '邮箱还没确认：去邮箱点确认链接，或在控制台关闭 Confirm email';
   if (/password should be at least|password is too short/i.test(msg)) return '密码太短，至少 8 位';
+  if (/超时|failed to fetch|networkerror|network request failed|load failed|fetch failed|ERR_/i.test(msg)) {
+    return '连不上云端：当前 WiFi 可能拦截了 supabase.co。换移动数据、改 DNS，或点「网络诊断」定位';
+  }
   return msg || '操作失败，稍后再试';
 }
 
@@ -297,10 +316,12 @@ function cloudKnownIds() {
   return ids;
 }
 
-async function onStorySyncState(localId, syncState) {
+async function onStorySyncState(localId, syncState, errorMsg) {
   const s = state.stories.find(x => x.id === localId);
   if (!s) return;
   s.syncState = syncState;
+  if (syncState === 'error' && errorMsg) s.lastSyncError = errorMsg;
+  else if (syncState !== 'error') delete s.lastSyncError;
   await dbPut(s);
   renderStories(); updateCloudChip();
 }
